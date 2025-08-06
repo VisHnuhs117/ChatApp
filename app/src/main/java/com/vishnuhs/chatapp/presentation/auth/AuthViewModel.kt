@@ -29,11 +29,17 @@ class AuthViewModel @Inject constructor(
     private fun checkAuthState() {
         viewModelScope.launch {
             try {
+                val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                val isLoggedIn = currentUser != null
+                println("DEBUG: checkAuthState - User: ${currentUser?.email}, isLoggedIn: $isLoggedIn")
+
                 authRepository.isUserLoggedIn()
-                    .collect { isLoggedIn ->
-                        _isLoggedIn.value = isLoggedIn
+                    .collect { isLoggedInFromRepo ->
+                        println("DEBUG: From repository - isLoggedIn: $isLoggedInFromRepo")
+                        _isLoggedIn.value = isLoggedInFromRepo
                     }
             } catch (e: Exception) {
+                println("DEBUG: checkAuthState error: ${e.message}")
                 _error.value = e.message
             }
         }
@@ -98,19 +104,30 @@ class AuthViewModel @Inject constructor(
     fun signOut() {
         viewModelScope.launch {
             try {
-                authRepository.signOut()
-                    .collect { resultFlow ->
-                        resultFlow.collect { success ->
-                            if (success) {
-                                _isLoggedIn.value = false
-                                _error.value = null
-                            } else {
-                                _error.value = "Failed to sign out"
-                            }
-                        }
-                    }
+                // Debug: Check current auth state
+                val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                println("DEBUG: Before logout - User: ${currentUser?.email}")
+
+                // Direct Firebase logout
+                com.google.firebase.auth.FirebaseAuth.getInstance().signOut()
+
+                // Debug: Check auth state after logout
+                val afterLogout = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                println("DEBUG: After logout - User: ${afterLogout?.email}")
+
+                // Force update the state
+                _isLoggedIn.value = false
+                _error.value = null
+
+                println("DEBUG: Set isLoggedIn to false")
+
+                // Recheck auth state to make sure
+                checkAuthState()
             } catch (e: Exception) {
+                println("DEBUG: Logout error: ${e.message}")
                 _error.value = e.message
+                // Force logout even if there's an error
+                _isLoggedIn.value = false
             }
         }
     }

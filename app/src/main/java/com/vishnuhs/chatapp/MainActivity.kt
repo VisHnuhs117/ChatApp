@@ -4,11 +4,9 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.*
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.vishnuhs.chatapp.presentation.auth.AuthViewModel
 import com.vishnuhs.chatapp.presentation.auth.LoginScreen
 import com.vishnuhs.chatapp.presentation.auth.SignUpScreen
 import com.vishnuhs.chatapp.presentation.home.HomeScreen
@@ -32,21 +30,6 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun ChatAppNavigation() {
     val navController = rememberNavController()
-    val authViewModel: AuthViewModel = hiltViewModel()
-    val isLoggedIn by authViewModel.isLoggedIn.collectAsState()
-
-    // Automatically navigate based on auth state
-    LaunchedEffect(isLoggedIn) {
-        if (isLoggedIn) {
-            navController.navigate("home") {
-                popUpTo("login") { inclusive = true }
-            }
-        } else {
-            navController.navigate("login") {
-                popUpTo("home") { inclusive = true }
-            }
-        }
-    }
 
     NavHost(
         navController = navController,
@@ -61,8 +44,7 @@ fun ChatAppNavigation() {
                     navController.navigate("home") {
                         popUpTo("login") { inclusive = true }
                     }
-                },
-                viewModel = authViewModel
+                }
             )
         }
 
@@ -75,8 +57,7 @@ fun ChatAppNavigation() {
                     navController.navigate("home") {
                         popUpTo("signup") { inclusive = true }
                     }
-                },
-                viewModel = authViewModel
+                }
             )
         }
 
@@ -86,11 +67,12 @@ fun ChatAppNavigation() {
                     navController.navigate("users")
                 },
                 onLogout = {
+                    // Direct logout and navigation
+                    com.google.firebase.auth.FirebaseAuth.getInstance().signOut()
                     navController.navigate("login") {
                         popUpTo("home") { inclusive = true }
                     }
-                },
-                viewModel = authViewModel
+                }
             )
         }
 
