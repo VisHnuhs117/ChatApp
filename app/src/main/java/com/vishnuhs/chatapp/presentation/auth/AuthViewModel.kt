@@ -103,6 +103,9 @@ class AuthViewModel @Inject constructor(
                         resultFlow.collect { success ->
                             if (success) {
                                 _isLoggedIn.value = false
+                                _error.value = null
+                            } else {
+                                _error.value = "Failed to sign out"
                             }
                         }
                     }

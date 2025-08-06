@@ -16,12 +16,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.vishnuhs.chatapp.presentation.auth.AuthViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     onNavigateToUsers: () -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    viewModel: AuthViewModel
 ) {
     Box(
         modifier = Modifier
