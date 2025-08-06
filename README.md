@@ -11,7 +11,6 @@ A modern real-time chat application built using **Kotlin**, **Firebase**, and **
 - 🪄 **Jetpack Compose UI** – Modern and reactive UI
 - 👤 **User Presence Detection**
 - 📱 **Mobile-First Design**
-- 🖼️ **Media Support** (Image sharing – optional)
 - ✅ **Logout & Session Handling**
 
 ---
