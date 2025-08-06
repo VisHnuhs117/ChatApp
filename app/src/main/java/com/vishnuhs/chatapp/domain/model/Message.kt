@@ -1,0 +1,11 @@
+package com.vishnuhs.chatapp.domain.model
+
+data class Message(
+    val id: String = "",
+    val senderId: String = "",
+    val receiverId: String = "",
+    val content: String = "",
+    val timestamp: Long = System.currentTimeMillis(),
+    val senderName: String = "",
+    val isRead: Boolean = false
+)
