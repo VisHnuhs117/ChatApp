@@ -18,39 +18,40 @@ class ChatRepositoryImpl @Inject constructor(
 
     override suspend fun sendMessage(message: Message): Result<Unit> {
         return try {
+            val messageData = hashMapOf(
+                "senderId" to message.senderId,
+                "receiverId" to message.receiverId,
+                "content" to message.content,
+                "timestamp" to message.timestamp,
+                "senderName" to message.senderName,
+                "isRead" to message.isRead
+            )
+
             firestore.collection("messages")
-                .add(message)
+                .add(messageData)
                 .await()
             Result.success(Unit)
         } catch (e: Exception) {
+            println("DEBUG: Error sending message: ${e.message}")
             Result.failure(e)
         }
     }
 
     override fun getMessages(senderId: String, receiverId: String): Flow<List<Message>> = callbackFlow {
         val listener = firestore.collection("messages")
-            .where(
-                com.google.firebase.firestore.Filter.or(
-                    com.google.firebase.firestore.Filter.and(
-                        com.google.firebase.firestore.Filter.equalTo("senderId", senderId),
-                        com.google.firebase.firestore.Filter.equalTo("receiverId", receiverId)
-                    ),
-                    com.google.firebase.firestore.Filter.and(
-                        com.google.firebase.firestore.Filter.equalTo("senderId", receiverId),
-                        com.google.firebase.firestore.Filter.equalTo("receiverId", senderId)
-                    )
-                )
-            )
+            .whereIn("senderId", listOf(senderId, receiverId))
+            .whereIn("receiverId", listOf(senderId, receiverId))
             .orderBy("timestamp", Query.Direction.ASCENDING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
+                    println("DEBUG: Firestore listener error: ${error.message}")
                     close(error)
                     return@addSnapshotListener
                 }
 
                 val messages = snapshot?.documents?.mapNotNull { doc ->
                     try {
-                        Message(
+                        val msg = Message(
                             id = doc.id,
                             senderId = doc.getString("senderId") ?: "",
                             receiverId = doc.getString("receiverId") ?: "",
@@ -59,15 +60,26 @@ class ChatRepositoryImpl @Inject constructor(
                             senderName = doc.getString("senderName") ?: "",
                             isRead = doc.getBoolean("isRead") ?: false
                         )
+
+                        // Only include messages between these two users
+                        if ((msg.senderId == senderId && msg.receiverId == receiverId) ||
+                            (msg.senderId == receiverId && msg.receiverId == senderId)) {
+                            msg
+                        } else null
                     } catch (e: Exception) {
+                        println("DEBUG: Error parsing message: ${e.message}")
                         null
                     }
                 } ?: emptyList()
 
+                println("DEBUG: Loaded ${messages.size} messages")
                 trySend(messages)
             }
 
-        awaitClose { listener.remove() }
+        awaitClose {
+            println("DEBUG: Closing messages listener")
+            listener.remove()
+        }
     }
 
     override suspend fun markMessageAsRead(messageId: String): Result<Unit> {

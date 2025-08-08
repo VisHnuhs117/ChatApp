@@ -9,7 +9,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -40,25 +39,35 @@ fun ChatScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
 
-    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    val currentUser = FirebaseAuth.getInstance().currentUser
+    val currentUserId = currentUser?.uid ?: ""
     val listState = rememberLazyListState()
 
     // Load messages when screen opens
     LaunchedEffect(chatUserId) {
-        viewModel.loadMessages(chatUserId)
-    }
-
-    // Scroll to bottom when new messages arrive
-    LaunchedEffect(messages.size) {
-        if (messages.isNotEmpty()) {
-            listState.animateScrollToItem(messages.size - 1)
+        println("DEBUG: ChatScreen opened for user: $chatUserName (ID: $chatUserId)")
+        if (currentUserId.isNotEmpty()) {
+            viewModel.loadMessages(chatUserId)
         }
     }
 
-    // Show error if any
+    // Auto scroll to bottom when new messages arrive
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) {
+            try {
+                listState.animateScrollToItem(messages.size - 1)
+            } catch (e: Exception) {
+                println("DEBUG: Error scrolling: ${e.message}")
+            }
+        }
+    }
+
+    // Clear error after showing it
     error?.let { errorMessage ->
         LaunchedEffect(errorMessage) {
-            // You can show a snackbar or toast here
+            println("DEBUG: Chat error: $errorMessage")
+            // Auto-clear error after 3 seconds
+            kotlinx.coroutines.delay(3000)
             viewModel.clearError()
         }
     }
@@ -92,11 +101,11 @@ fun ChatScreen(
                                 .background(Color.White.copy(alpha = 0.2f)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Person,
-                                contentDescription = "Profile",
-                                tint = Color.White,
-                                modifier = Modifier.size(18.dp)
+                            Text(
+                                text = if (chatUserName.isNotEmpty()) chatUserName.take(1).uppercase() else "U",
+                                color = Color.White,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
                             )
                         }
 
@@ -104,7 +113,7 @@ fun ChatScreen(
 
                         Column {
                             Text(
-                                text = chatUserName,
+                                text = chatUserName.ifEmpty { "User" },
                                 color = Color.White,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold
@@ -118,7 +127,14 @@ fun ChatScreen(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(onClick = {
+                        try {
+                            println("DEBUG: Navigating back from chat")
+                            onNavigateBack()
+                        } catch (e: Exception) {
+                            println("DEBUG: Error navigating back: ${e.message}")
+                        }
+                    }) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
                             contentDescription = "Back",
@@ -140,43 +156,87 @@ fun ChatScreen(
                 shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White)
             ) {
-                if (messages.isEmpty() && !isLoading) {
-                    // Empty state
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "No messages yet. Start the conversation!",
-                            color = Color(0xFF64748B),
-                            fontSize = 14.sp
-                        )
-                    }
-                } else {
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(messages) { message ->
-                            MessageItem(
-                                message = message,
-                                isFromCurrentUser = message.senderId == currentUserId
-                            )
-                        }
-
-                        if (isLoading) {
-                            item {
-                                Box(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    contentAlignment = Alignment.Center
+                when {
+                    error != null -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = "⚠️ Error",
+                                    fontSize = 18.sp,
+                                    color = Color(0xFFDC2626),
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = error!!,
+                                    fontSize = 14.sp,
+                                    color = Color(0xFF64748B)
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Button(
+                                    onClick = { viewModel.loadMessages(chatUserId) }
                                 ) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(20.dp),
-                                        color = Color(0xFF6366F1)
-                                    )
+                                    Text("Retry")
+                                }
+                            }
+                        }
+                    }
+
+                    messages.isEmpty() && !isLoading -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = "💬 Start your conversation",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFF64748B)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "Send a message to ${chatUserName}",
+                                    color = Color(0xFF64748B),
+                                    fontSize = 14.sp
+                                )
+                            }
+                        }
+                    }
+
+                    else -> {
+                        LazyColumn(
+                            state = listState,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(messages) { message ->
+                                MessageItem(
+                                    message = message,
+                                    isFromCurrentUser = message.senderId == currentUserId
+                                )
+                            }
+
+                            if (isLoading) {
+                                item {
+                                    Box(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(20.dp),
+                                            color = Color(0xFF6366F1)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -207,26 +267,37 @@ fun ChatScreen(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = Color(0xFF6366F1),
                             unfocusedBorderColor = Color(0xFFE2E8F0)
-                        )
+                        ),
+                        enabled = !isLoading
                     )
 
                     Spacer(modifier = Modifier.width(12.dp))
 
                     FloatingActionButton(
                         onClick = {
-                            if (messageText.isNotBlank()) {
+                            if (messageText.isNotBlank() && !isLoading) {
+                                println("DEBUG: Sending message: $messageText")
                                 viewModel.sendMessage(messageText, chatUserId, chatUserName)
                                 messageText = ""
                             }
                         },
                         modifier = Modifier.size(48.dp),
-                        containerColor = Color(0xFF6366F1)
+                        containerColor = if (messageText.isNotBlank() && !isLoading)
+                            Color(0xFF6366F1) else Color(0xFFE2E8F0)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Send,
-                            contentDescription = "Send",
-                            tint = Color.White
-                        )
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Send,
+                                contentDescription = "Send",
+                                tint = Color.White
+                            )
+                        }
                     }
                 }
             }
@@ -267,12 +338,24 @@ fun MessageItem(
                     fontSize = 14.sp
                 )
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = timeFormat.format(Date(message.timestamp)),
-                    color = if (isFromCurrentUser)
-                        Color.White.copy(alpha = 0.7f) else Color(0xFF64748B),
-                    fontSize = 11.sp
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = timeFormat.format(Date(message.timestamp)),
+                        color = if (isFromCurrentUser)
+                            Color.White.copy(alpha = 0.7f) else Color(0xFF64748B),
+                        fontSize = 11.sp
+                    )
+                    if (isFromCurrentUser) {
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = if (message.isRead) "✓✓" else "✓",
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 10.sp
+                        )
+                    }
+                }
             }
         }
     }

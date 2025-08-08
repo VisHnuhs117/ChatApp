@@ -14,6 +14,9 @@ import com.vishnuhs.chatapp.presentation.users.UsersScreen
 import com.vishnuhs.chatapp.presentation.chat.ChatScreen
 import com.vishnuhs.chatapp.ui.theme.ChatAppTheme
 import dagger.hilt.android.AndroidEntryPoint
+import java.net.URLEncoder
+import java.net.URLDecoder
+import java.nio.charset.StandardCharsets
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -82,20 +85,51 @@ fun ChatAppNavigation() {
                     navController.popBackStack()
                 },
                 onUserClick = { userId, userName ->
-                    navController.navigate("chat/$userId/$userName")
+                    try {
+                        println("DEBUG: Navigating to chat with user: $userName (ID: $userId)")
+
+                        // URL encode the parameters to handle special characters like @
+                        val encodedUserId = URLEncoder.encode(userId, StandardCharsets.UTF_8.toString())
+                        val encodedUserName = URLEncoder.encode(userName, StandardCharsets.UTF_8.toString())
+
+                        navController.navigate("chat/$encodedUserId/$encodedUserName")
+
+                    } catch (e: Exception) {
+                        println("DEBUG: Navigation error: ${e.message}")
+                        e.printStackTrace()
+                    }
                 }
             )
         }
 
         composable("chat/{userId}/{userName}") { backStackEntry ->
-            val userId = backStackEntry.arguments?.getString("userId") ?: ""
-            val userName = backStackEntry.arguments?.getString("userName") ?: "User"
+            val encodedUserId = backStackEntry.arguments?.getString("userId") ?: ""
+            val encodedUserName = backStackEntry.arguments?.getString("userName") ?: "User"
+
+            // URL decode the parameters
+            val userId = try {
+                URLDecoder.decode(encodedUserId, StandardCharsets.UTF_8.toString())
+            } catch (e: Exception) {
+                encodedUserId
+            }
+
+            val userName = try {
+                URLDecoder.decode(encodedUserName, StandardCharsets.UTF_8.toString())
+            } catch (e: Exception) {
+                encodedUserName
+            }
+
+            println("DEBUG: Opening ChatScreen with user: $userName (ID: $userId)")
 
             ChatScreen(
                 chatUserId = userId,
                 chatUserName = userName,
                 onNavigateBack = {
-                    navController.popBackStack()
+                    try {
+                        navController.popBackStack()
+                    } catch (e: Exception) {
+                        println("DEBUG: Back navigation error: ${e.message}")
+                    }
                 }
             )
         }
