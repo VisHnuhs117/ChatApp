@@ -57,5 +57,5 @@ A modern real-time chat application built using **Kotlin**, **Firebase**, and **
 ### Clone and Run
 
 ```bash
-git clone https://github.com/yourusername/ChatApp.git
+git clone https://github.com/VisHnuhs117/ChatApp.git
 cd ChatApp
